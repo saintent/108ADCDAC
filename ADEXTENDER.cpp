@@ -145,7 +145,12 @@ uint8_t ADEXTENDER::DACSetOutByVoltage(E_ADEXTENDER_OUT_CHANNAL eCh,
 
 	u16DACValue = ((uint32_t)u16Volage * (uint32_t)DAC_FACTOR) / u8ADCResolution;
 
-	return DACUpdateVaule((AD533X_OUT_SEL)eCh, AD533X_POWER_DOWN_NORMAL, 1, 0, u16DACValue);
+	return DACUpdateVaule(
+			(AD533X_OUT_SEL)eCh,
+			AD533X_POWER_DOWN_NORMAL,
+			1,
+			0,
+			u16DACValue);
 }
 
 uint8_t ADEXTENDER::DACSetOutByCurrent(E_ADEXTENDER_OUT_CHANNAL eCh,
@@ -206,7 +211,27 @@ uint16_t ADEXTENDER::ADCRead(ADS101X_CHANNEL eChannel, uint16_t pu16Out[]) {
 
 	return u16Status;
 	
+}
+
+uint16_t ADEXTENDER::ADCReadTC(ADS101X_CHANNEL eChannel) {
+	uint16_t u16Status;
+	uint16_t ConversionCmp;
+	uint16_t u16ReadValue;
 	
+	//uint16_t u16Value;
+	aDCStartConversion(eChannel, ADS101X_PGA_GAIN_16);
+
+	//u8Status = aDCGetStatus();
+	u16Status = ADCReadStatus();
+	ConversionCmp = (u16Status & 0x8000) >> 15;
+	while(!ConversionCmp) {
+		u16Status = ADCReadStatus();
+		ConversionCmp = (u16Status & 0x8000) >> 15;
+	}
+	deviceRead(u8ADCAddress, ADS101X_REG_CONVERSION, &u16ReadValue);
+
+
+	return u16ReadValue;
 
 }
 
@@ -219,6 +244,25 @@ uint8_t ADEXTENDER::aDCStartConversion(ADS101X_CHANNEL eChannel) {
 	u16ConfigValue =  (uint16_t) (1 << 15)					// Bit 15 Begin a single conversion
 					| (uint16_t) (eChannel << 12)				// Bit [14:12]Input multiplexer configuration
 					| (uint16_t) (ADS101X_PGA_GAIN_2P3 << 9)	// Bit [11:9] PGA configuration
+					| (uint16_t) (ADS101X_MODE_SIGLE << 8)			// Bit 8 Device operating mode
+			 	 	| (uint16_t) (ADS101X_DATA_RATE_128_SPS << 5)	// Bit [7:5] Data rate
+					| (uint16_t) (0x03);						// Bit [1:0] Disable Comparator
+
+	// Write value to device
+	u8Status = deviceWrite(u8ADCAddress, ADS101X_REG_CONFIG, u16ConfigValue);
+
+	return u8Status;
+}
+
+uint8_t ADEXTENDER::aDCStartConversion(ADS101X_CHANNEL eChannel, ADS101X_PGA_GAIN eScale) {
+	uint8_t u8Status;
+	uint16_t u16ConfigValue;
+
+
+	// Setting configuration
+	u16ConfigValue =  (uint16_t) (1 << 15)					// Bit 15 Begin a single conversion
+					| (uint16_t) (eChannel << 12)				// Bit [14:12]Input multiplexer configuration
+					| (uint16_t) (eScale << 9)	// Bit [11:9] PGA configuration
 					| (uint16_t) (ADS101X_MODE_SIGLE << 8)			// Bit 8 Device operating mode
 			 	 	| (uint16_t) (ADS101X_DATA_RATE_128_SPS << 5)	// Bit [7:5] Data rate
 					| (uint16_t) (0x03);						// Bit [1:0] Disable Comparator

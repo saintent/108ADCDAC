@@ -18,6 +18,7 @@
 #include "AD533X_type.h"
 #include "ADS101X_type.h"
 #include <Wire.h>
+#include <SPI.h>
 // ---------- EXTERNAL MODULE INCLUDE ------------------------------------------------------------ //
 // N/A
 // ---------- PUBLIC PROGRAMMING DEFINE ---------------------------------------------------------- //
@@ -87,10 +88,11 @@ public:
 
 	uint16_t ADCReadStatus(void);
 	uint16_t ADCRead(ADS101X_CHANNEL eChannel);
-	uint16_t  ADCRead(ADS101X_CHANNEL eChannel, uint16_t out[]);
-
+	uint16_t ADCRead(ADS101X_CHANNEL eChannel, uint16_t out[]);
+	uint16_t ADCReadTC(ADS101X_CHANNEL eChannel);
 private :
 	uint8_t aDCStartConversion(ADS101X_CHANNEL eChannel);
+	uint8_t aDCStartConversion(ADS101X_CHANNEL eChannel, ADS101X_PGA_GAIN eScale);
 	//uint8_t aDCGetStatus(void);
 	uint8_t aDCGetConversionValue(uint16_t data[]);
 	uint8_t deviceWrite(uint8_t u8DevAddr, uint8_t u8Reg, uint16_t u16Value);

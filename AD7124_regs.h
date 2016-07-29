@@ -5,9 +5,9 @@
 #define	AD7124_R  2   /* Read only */
 #define AD7124_W  3   /* Write only */
 
-#define AD7124_INIT
+//#define AD7124_INIT
 
-typedef enum ad7124_reg_access ad7124_reg_access;
+
 
 /*! Device register info */
 typedef struct _ad7124_st_reg
@@ -80,6 +80,8 @@ enum ad7124_registers
 	AD7124_Gain_7,
 	AD7124_REG_NO
 };
+
+typedef enum ad7124_registers ad7124_reg_access;
 
 #ifdef AD7124_INIT
 /*! Array holding the info for the ad7124 registers - address, initial value,

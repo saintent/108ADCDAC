@@ -17,6 +17,7 @@
 
 #include "AD533X_type.h"
 #include "ADS101X_type.h"
+#include "AD7124_regs.h"
 #include <Wire.h>
 #include <SPI.h>
 // ---------- EXTERNAL MODULE INCLUDE ------------------------------------------------------------ //
@@ -97,7 +98,8 @@ private :
 	uint8_t aDCGetConversionValue(uint16_t data[]);
 	uint8_t deviceWrite(uint8_t u8DevAddr, uint8_t u8Reg, uint16_t u16Value);
 	uint8_t deviceRead(uint8_t u8DevAddr, uint8_t u8Reg, uint16_t pu16Value[]);
-
+	//uint8_t deviceSPIWrite(uint_t u8CMD, uint8_t pu8Data[], uint8_t u8Length);
+	//uint8_t deviceSPIRead(uint_t u8CMD, uint8_t pu8Data[], uint8_t u8Length);
 	uint8_t u8ADCAddress;
 	uint8_t u8DACAddress;
 	uint16_t u16ADCZero;
@@ -106,6 +108,8 @@ private :
 	uint16_t u16DACSpan;
 	uint16_t u16Vref;
 	uint8_t u8ADCResolution;
+
+	ad7124_device	ad7124Device;
 };
 
 // ---------- END OF CLASS DECLARATION ---------------------------------------------------------- //

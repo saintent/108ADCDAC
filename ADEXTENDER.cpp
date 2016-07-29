@@ -12,12 +12,14 @@ extern "C" {
 	#include <stdlib.h>
 	#include <string.h>
 	#include <inttypes.h>
-	#include "utility/twi.h"
+	//#include "utility/twi.h"
+	#include "AD7124.h"
 #ifdef __cplusplus
 }
 #endif
 
 #include <Wire.h>
+#include <Spi.h>
 #include "ADEXTENDER.h"
 // ---------- PUBLIC METHOD (FUNCTION PROTOTYPE) ------------------------------------------------- //
 // N/A
@@ -30,6 +32,7 @@ extern "C" {
 // ---------- PRIVATE PROGRAMMING DEFINE -------------------------------------------------------- //
 #define DAC_FACTOR						100
 #define CURRENT_TO_VOLTAGE_FACTOR		250
+#define SS_PIN							10
 // ---------- PRIVATE MACRO DEFINITION ---------------------------------------------------------- //
 // N/A
 // ---------- SOURCE FILE IMPLEMENTATION -------------------------------------------------------- //
@@ -53,11 +56,15 @@ uint8_t ADEXTENDER::Init(void) {
 	u8ADCAddress = ADS101x_DEFAULT_ADDRESS;
 	u8DACAddress = AD533X_DEFAULT_ADDRESS;
 	Wire.begin();
+	SPI.begin();
+
+	pinMode(SS_PIN, OUTPUT);
 
 	// Default Voltage 5V 1 mV per resolution
 	u16Vref = 5000;
 	// Calculate resolution
 	u8ADCResolution = (uint8_t)(((uint32_t)(u16Vref) * DAC_FACTOR) / 4095);
+
 
 
 	return 0;

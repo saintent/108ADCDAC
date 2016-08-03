@@ -16,7 +16,17 @@
 //================ TYPEDEF DATA TYPE DEFINITION =============================//
 //
 //================ ENUMERATOR DEFINITION ====================================//
-//
+typedef enum {
+	AD7124_REG_U8 = 1,
+	AD7124_REG_U16 = 2,
+	AD7124_REG_U24 = 3
+}E_AD7124_REG_TYPE;
+
+typedef enum {
+	AD7124_REG_R = 1,
+	AD7124_REG_W = 2,
+	AD7124_REG_RW = 3
+}E_AD7124_REG_ACCESSE;
 //================ TYPEDEF FUNCTION TYPE DEFFINITION ========================//
 //
 //================ TYPEDEF STRUCT/UNION =====================================//
@@ -47,6 +57,13 @@ typedef struct ad7124_config_register_tag{
 	uint16_t Bipolay:1;
 	uint16_t rsv:4;
 }AD7124_CONFIG_REGISTER;
+
+typedef struct ad7124_register_tag{
+	uint16_t 				u8Address;
+	E_AD7124_REG_TYPE 		eType;
+	E_AD7124_REG_ACCESSE 	eAccessType;
+	uint32_t				u32Value;
+}S_AD7124_REG;
 //================ EXTERN FUNCTION ==========================================//
 #ifdef __cplusplus
 extern "C"

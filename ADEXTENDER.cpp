@@ -78,6 +78,7 @@ uint8_t ADEXTENDER::Init(/*uint8_t ADCAddress, */uint8_t DACAddress) {
 	Wire.begin();
 	SPI.begin();
 
+	pinMode(SS_PIN, OUTPUT);
 	// Default Voltage 5V 1 mV per resolution
 	u16Vref = 5000;
 	// Calculate resolution
@@ -179,24 +180,23 @@ uint8_t ADEXTENDER::ADCReset(void) {
 }
 
 uint8_t ADEXTENDER::ADCReadStatus(void) {
-/*	uint8_t u8Status;
-
-	deviceSPIRead(AD7124_STATUS_REG, 1, &u8Status);*/
 
 	return deviceSPIReadU8(AD7124_STATUS_REG);
 }
 
+uint8_t ADEXTENDER::ADCReadMCLK(void) {
+
+	return deviceSPIReadU8(AD7124_Mclk_Count);
+}
+
 uint32_t ADEXTENDER::ADCReadERROR_EN(void) {
-	/*uint8_t u8Reg[4];
-	uint32_t ret;
-
-	deviceSPIRead(AD7124_ERREN_REG, 3, u8Reg);
-
-	ret = u8Reg[0] << 16;
-	ret |= u8Reg[1] << 8;
-	ret |= u8Reg[2];*/
 
 	return deviceSPIReadU24(AD7124_ERREN_REG);
+}
+
+uint32_t ADEXTENDER::ADCReadError(void) {
+
+	return deviceSPIReadU24(AD7124_Error);
 }
 
 uint8_t ADEXTENDER::ADCRead(E_ADEXTENDER_ADC_CH eChannel, uint32_t pOut[]) {
@@ -207,7 +207,7 @@ uint8_t ADEXTENDER::ADCRead(E_ADEXTENDER_ADC_CH eChannel, uint32_t pOut[]) {
 	aDCStartConversion(eChannel);
 
 	pOut[0] = 0xFFFFFFFF;
-	timeout = 10000;
+	timeout = 100;
 	u8Ready = ADCReadStatus();
 	u8Ready = (u8Ready & AD7124_STATUS_REG_RDY) >> 7;
 
@@ -320,6 +320,15 @@ uint16_t ADEXTENDER::ADCGetConfig(uint8_t u8Entry) {
 	return deviceSPIReadU16(AD7124_Config_0 + u8Entry);
 }
 
+uint8_t ADEXTENDER::ADCWriteErrorEn(uint32_t u32Value) {
+	uint8_t u8TempBuffer[8];
+	u8TempBuffer[0] = (uint8_t)((u32Value >> 16) & 0xFF);
+	u8TempBuffer[1] = (uint8_t)((u32Value >> 8) & 0xFF);
+	u8TempBuffer[2] = (uint8_t)(u32Value & 0xFF);
+
+	deviceSPIWrite(AD7124_ERREN_REG, u8TempBuffer, 3);
+}
+
 
 //=========== Private Method ======================================================================//
 
@@ -332,9 +341,11 @@ uint8_t ADEXTENDER::aDCStartConversion(E_ADEXTENDER_ADC_CH eChannel) {
 
 
 	// Setting configuration
-	u16ConfigValue = (uint16_t)AD7124_ADC_CTRL_REG_REF_EN |
-			(uint16_t)AD7124_ADC_CTRL_REG_POWER_MODE(3) |
-			(uint16_t)AD7124_ADC_CTRL_REG_MODE(1);
+	u16ConfigValue = (uint16_t)AD7124_ADC_CTRL_REG_DOUT_RDY_DEL |
+			(uint16_t)AD7124_ADC_CTRL_REG_REF_EN |
+			(uint16_t)AD7124_ADC_CTRL_REG_POWER_MODE(2) |
+			(uint16_t)AD7124_ADC_CTRL_REG_MODE(1) |
+			(uint16_t)AD7124_ADC_CTRL_REG_CLK_SEL(1);
 
 	// Read Current active channel
 	u8Status = ADCReadStatus();
@@ -349,13 +360,13 @@ uint8_t ADEXTENDER::aDCStartConversion(E_ADEXTENDER_ADC_CH eChannel) {
 	ADCSetChannelControl(eChannel, AD_ENABLE);
 
 	// Write value to ADC Control
-	u8TempBuffer[0] = (uint8_t)((u16ConfigValue >> 8) & 0xFF);
-	u8TempBuffer[1] = (uint8_t)(u16ConfigValue & 0xFF);
-	deviceSPIWrite(AD7124_ADC_Control, u8TempBuffer, 2);
+	//u8TempBuffer[0] = (uint8_t)((u16ConfigValue >> 8) & 0xFF);
+	//u8TempBuffer[1] = (uint8_t)(u16ConfigValue & 0xFF);
+	//deviceSPIWrite(AD7124_ADC_Control, u8TempBuffer, 2);
+	ADCConfigControl(u16ConfigValue);
 
 	return 0;
 }
-
 
 uint8_t ADEXTENDER::aDCGetConversionValue(uint16_t data[]) {
 	uint8_t u8TempBuffer[4];
@@ -395,7 +406,11 @@ uint8_t ADEXTENDER::deviceSPIWrite(uint8_t u8Reg, uint8_t pu8Data[], uint8_t u8L
 	uint8_t u8ComReg;
 
 	u8ComReg = AD7124_COMM_REG_WEN | AD7124_COMM_REG_WR | AD7124_COMM_REG_RA(u8Reg);
+
+	//SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE3));
+
 	digitalWrite(SS_PIN, LOW);
+
 
 	SPI.transfer(u8ComReg);
 
@@ -405,6 +420,8 @@ uint8_t ADEXTENDER::deviceSPIWrite(uint8_t u8Reg, uint8_t pu8Data[], uint8_t u8L
 
 	digitalWrite(SS_PIN, HIGH);
 
+	//SPI.endTransaction();
+
 	return 0;
 }
 
@@ -413,6 +430,9 @@ uint8_t ADEXTENDER::deviceSPIRead(uint8_t u8Reg, uint8_t u8Length, uint8_t pu8Da
 	uint8_t u8ComReg;
 
 	u8ComReg = AD7124_COMM_REG_WEN | AD7124_COMM_REG_RD | AD7124_COMM_REG_RA(u8Reg);
+
+	//SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE3));
+
 	digitalWrite(SS_PIN, LOW);
 
 	SPI.transfer(u8ComReg);
@@ -423,7 +443,116 @@ uint8_t ADEXTENDER::deviceSPIRead(uint8_t u8Reg, uint8_t u8Length, uint8_t pu8Da
 
 	digitalWrite(SS_PIN, HIGH);
 
+	//SPI.endTransaction();
+
 	return 0;
+}
+
+uint8_t ADEXTENDER::ADCWriteRegister(ad7124_reg_access eRegister,
+		uint32_t u32Value, uint8_t u8Size, uint8_t u8Verify) {
+  uint8_t u8Msg[16];
+  uint8_t i;
+  uint32_t u32ReadValue;
+  uint8_t u8Status;
+  // Read register
+  u8Msg[0] = AD7124_COMM_REG_WEN | AD7124_COMM_REG_WR | AD7124_COMM_REG_RA(eRegister);
+  if (u8Size == 3) {
+    u8Msg[1] = (u32Value >> 16) & 0xFF;
+    u8Msg[2] = (u32Value >> 8) & 0xFF;
+    u8Msg[3] = u32Value & 0xFF;
+    u8Msg[4] = computeCRC8(u8Msg, u8Size + 1);
+  }
+  else if (u8Size == 2) {
+    u8Msg[1] =( u32Value >> 8) & 0xFF;
+    u8Msg[2] = u32Value & 0xFF;
+    u8Msg[3] = computeCRC8(u8Msg, u8Size + 1);
+  }
+  else {
+    u8Msg[1] = u32Value;
+    u8Msg[2] = computeCRC8(u8Msg, u8Size + 1);
+  }
+
+  Serial.print("\nWrite Register ");
+  Serial.print(eRegister, HEX);
+  Serial.print("\t\t");
+
+
+
+  digitalWrite(SS_PIN, LOW);
+  for(i = 0; i < u8Size + 2; i++) {
+    Serial.print(" 0x");
+    SPI.transfer(u8Msg[i]);
+    Serial.print(u8Msg[i], HEX);
+
+  }
+
+  digitalWrite(SS_PIN, HIGH);
+
+  //
+  Serial.print("\t CRC = ");
+  Serial.print(computeCRC8(u8Msg, u8Size + 2), HEX);
+
+  if (u8Verify == 1) {
+	  u8Status = ADCReadRegister(eRegister, u8Size, &u32ReadValue);
+	  if ((u8Status = 255) || (u32Value != u32ReadValue)) {
+		  // Verify fail
+		  return 255;
+	  }
+  }
+
+  return 0;
+
+}
+
+uint8_t ADEXTENDER::ADCReadRegister(ad7124_reg_access eRegister, uint8_t u8Size, uint32_t u32Out[]) {
+	uint8_t u8Msg[16];
+	uint8_t i;
+	uint8_t u8CRC;
+	// Read register
+	u8Msg[0] = AD7124_COMM_REG_WEN | AD7124_COMM_REG_RD
+			| AD7124_COMM_REG_RA(eRegister);
+
+	Serial.print("\nRead Register ");
+	Serial.print(eRegister, HEX);
+	Serial.print("\t\t");
+	Serial.print("0x");
+
+	digitalWrite(SS_PIN, LOW);
+	SPI.transfer(u8Msg[0]);
+
+	for (i = 0; i < u8Size + 1; i++) {
+		u8Msg[1 + i] = SPI.transfer(0xFF);
+		if (i == u8Size) {
+			Serial.print("\t");
+		}
+		Serial.print(u8Msg[1 + i], HEX);
+
+	}
+
+	digitalWrite(SS_PIN, HIGH);
+
+	// Calculate CRC
+	u8CRC = computeCRC8(u8Msg, u8Size + 2);
+	Serial.print("\t CRC = ");
+	Serial.print(u8CRC, HEX);
+
+	if (u8CRC != 0) {
+		return 255;
+	}
+
+	if (u8Size == 3) {
+		u32Out[0] = (uint32_t)(u8Msg[1] << 16);
+		u32Out[0] |= (uint32_t)(u8Msg[2] << 8);
+		u32Out[0] |= (uint32_t)(u8Msg[3]);
+	} else if (u8Size == 2) {
+		u32Out[0] = (uint32_t)(u8Msg[1] << 8);
+		u32Out[0] |= (uint32_t)u8Msg[2];
+	} else {
+		u32Out[0] = (uint32_t)u8Msg[1];
+	}
+
+	return 0;
+
 }
 
 uint8_t ADEXTENDER::deviceSPIReadU8(uint8_t u8Reg) {

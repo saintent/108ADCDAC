@@ -102,6 +102,9 @@ public:
 	uint8_t ADCReset(void);
 
 	uint8_t ADCReadStatus(void);
+	uint8_t ADCReadMCLK(void);
+
+	uint32_t ADCReadError(void);
 
 	uint8_t ADCRead(E_ADEXTENDER_ADC_CH eChannel, uint32_t pOut[]);
 
@@ -114,7 +117,9 @@ public:
 	uint8_t ADCSetConfig(uint8_t u8Entry, uint8_t vrefSel, uint8_t pga);
 	uint16_t ADCGetConfig(uint8_t u8Entry);
 
+	uint8_t ADCWriteErrorEn(uint32_t u32Value);
 	uint32_t ADCReadERROR_EN(void);
+
 
 private :
 	uint8_t aDCStartConversion(E_ADEXTENDER_ADC_CH eChannel);
@@ -126,7 +131,9 @@ private :
 public :
 	uint8_t deviceSPIWrite(uint8_t u8Reg, uint8_t pu8Data[], uint8_t u8Length);
 	uint8_t deviceSPIRead(uint8_t u8Reg, uint8_t u8Length, uint8_t pu8DataOut[]);
-
+	uint8_t ADCReadRegister(ad7124_reg_access eRegister, uint8_t u8Size, uint32_t u32Out[]);
+	uint8_t ADCWriteRegister(ad7124_reg_access eRegister,
+			uint32_t u32Value, uint8_t u8Size, uint8_t u8Verify);
 	uint8_t deviceSPIReadU8(uint8_t u8Reg);
 	uint16_t deviceSPIReadU16(uint8_t u8Reg);
 	uint32_t deviceSPIReadU24(uint8_t u8Reg);
@@ -143,7 +150,65 @@ private :
 	uint16_t u16Vref;
 	uint8_t u8ADCResolution;
 
-	//ad7124_device	ad7124Device;
+//	S_AD7124_REG sAD7124Register[29] = {
+//			{ 0x00, AD7124_REG_U8, 	AD7124_REG_R, 	0x00 		}, /* AD7124_Status */
+//			{ 0x01, AD7124_REG_U16,	AD7124_REG_RW, 	0x0000 		}, /* AD7124_ADC_Control */
+//			{ 0x02, AD7124_REG_U24,	AD7124_REG_R,	0x000000	}, /* AD7124_Data */
+//			{ 0x03, AD7124_REG_U16,	AD7124_REG_RW,	0x0000  	}, /* AD7124_IOCon1 */
+//			{ 0x04, AD7124_REG_U16,	AD7124_REG_RW,	0x0000  	}, /* AD7124_IOCon2 */
+//			{ 0x05, AD7124_REG_U8, 	AD7124_REG_R, 	0x02		}, /* AD7124_ID */
+//			{ 0x06, AD7124_REG_U24,	AD7124_REG_R,	0x0000		}, /* AD7124_Error */
+//			{ 0x07, AD7124_REG_U16,	AD7124_REG_RW,	0x0044		}, /* AD7124_Error_En */
+//			{ 0x08, AD7124_REG_U8, 	AD7124_REG_R, 	0x00 		}, /* AD7124_Mclk_Count */
+//			{ 0x09, AD7124_REG_U16,	AD7124_REG_RW,	0x8001		}, /* AD7124_Channel_0 */
+//			{ 0x0A, AD7124_REG_U16,	AD7124_REG_RW,	0x0001		}, /* AD7124_Channel_1 */
+//			{ 0x0B, AD7124_REG_U16,	AD7124_REG_RW,	0x0001		}, /* AD7124_Channel_2 */
+//			{ 0x0C, AD7124_REG_U16,	AD7124_REG_RW,	0x0001		}, /* AD7124_Channel_3 */
+//			{ 0x0D, AD7124_REG_U16,	AD7124_REG_RW,	0x0001		}, /* AD7124_Channel_4 */
+//			{ 0x0E, AD7124_REG_U16,	AD7124_REG_RW,	0x0001		}, /* AD7124_Channel_5 */
+//			{ 0x0F, AD7124_REG_U16,	AD7124_REG_RW,	0x0001		}, /* AD7124_Channel_6 */
+//			{ 0x10, AD7124_REG_U16,	AD7124_REG_RW,	0x0001		}, /* AD7124_Channel_7 */
+//			{ 0x11, AD7124_REG_U16,	AD7124_REG_RW,	0x0001		}, /* AD7124_Channel_8 */
+//			{ 0x12, AD7124_REG_U16,	AD7124_REG_RW,	0x0001		}, /* AD7124_Channel_9 */
+//			{ 0x13, AD7124_REG_U16,	AD7124_REG_RW,	0x0001		}, /* AD7124_Channel_10 */
+//			{ 0x14, AD7124_REG_U16,	AD7124_REG_RW,	0x0001		}, /* AD7124_Channel_11 */
+//			{ 0x15, AD7124_REG_U16,	AD7124_REG_RW,	0x0001		}, /* AD7124_Channel_12 */
+//			{ 0x16, AD7124_REG_U16,	AD7124_REG_RW,	0x0001		}, /* AD7124_Channel_13 */
+//			{ 0x17, AD7124_REG_U16,	AD7124_REG_RW,	0x0001		}, /* AD7124_Channel_14 */
+//			{ 0x18, AD7124_REG_U16,	AD7124_REG_RW,	0x0001		}, /* AD7124_Channel_15 */
+//			{ 0x19, AD7124_REG_U16,	AD7124_REG_RW,	0x0860	 	}, /* AD7124_Config_0 */
+//			{ 0x1A, AD7124_REG_U16,	AD7124_REG_RW,	0x0860	 	}, /* AD7124_Config_1 */
+//			{ 0x1B, AD7124_REG_U16,	AD7124_REG_RW,	0x0860	 	}, /* AD7124_Config_2 */
+//			{ 0x1C, AD7124_REG_U16,	AD7124_REG_RW,	0x0860	 	}, /* AD7124_Config_3 */
+//			{ 0x1D, AD7124_REG_U16,	AD7124_REG_RW,	0x0860	 	}, /* AD7124_Config_4 */
+//			{ 0x1E, AD7124_REG_U16,	AD7124_REG_RW,	0x0860	 	}, /* AD7124_Config_5 */
+//			{ 0x1F, AD7124_REG_U16,	AD7124_REG_RW,	0x0860	 	}, /* AD7124_Config_6 */
+//			{ 0x20, AD7124_REG_U16,	AD7124_REG_RW,	0x0860	 	}, /* AD7124_Config_7 */
+//			{ 0x21,	AD7124_REG_U24,	AD7124_REG_RW,	0x060180	}, /* AD7124_Filter_0 */
+//			{ 0x22, AD7124_REG_U24,	AD7124_REG_RW,	0x060180	}, /* AD7124_Filter_1 */
+//			{ 0x23, AD7124_REG_U24,	AD7124_REG_RW,	0x060180	}, /* AD7124_Filter_2 */
+//			{ 0x24, AD7124_REG_U24,	AD7124_REG_RW,	0x060180	}, /* AD7124_Filter_3 */
+//			{ 0x25, AD7124_REG_U24,	AD7124_REG_RW,	0x060180	}, /* AD7124_Filter_4 */
+//			{ 0x26, AD7124_REG_U24,	AD7124_REG_RW,	0x060180	}, /* AD7124_Filter_5 */
+//			{ 0x27, AD7124_REG_U24,	AD7124_REG_RW,	0x060180	}, /* AD7124_Filter_6 */
+//			{ 0x28, AD7124_REG_U24,	AD7124_REG_RW,	0x060180	}, /* AD7124_Filter_7 */
+//			{ 0x29, AD7124_REG_U24,	AD7124_REG_RW,	0x800000	}, /* AD7124_Offset_0 */
+//			{ 0x2A, AD7124_REG_U24,	AD7124_REG_RW,	0x800000	}, /* AD7124_Offset_1 */
+//			{ 0x2B, AD7124_REG_U24,	AD7124_REG_RW,	0x800000	}, /* AD7124_Offset_2 */
+//			{ 0x2C, AD7124_REG_U24,	AD7124_REG_RW,	0x800000	}, /* AD7124_Offset_3 */
+//			{ 0x2D, AD7124_REG_U24,	AD7124_REG_RW,	0x800000	}, /* AD7124_Offset_4 */
+//			{ 0x2E, AD7124_REG_U24,	AD7124_REG_RW,	0x800000	}, /* AD7124_Offset_5 */
+//			{ 0x2F, AD7124_REG_U24,	AD7124_REG_RW,	0x800000	}, /* AD7124_Offset_6 */
+//			{ 0x30, AD7124_REG_U24,	AD7124_REG_RW,	0x800000	}, /* AD7124_Offset_7 */
+//			{ 0x31, AD7124_REG_U24,	AD7124_REG_RW,	0x500000	}, /* AD7124_Gain_0 */
+//			{ 0x32, AD7124_REG_U24,	AD7124_REG_RW,	0x500000	}, /* AD7124_Gain_1 */
+//			{ 0x33, AD7124_REG_U24,	AD7124_REG_RW,	0x500000	}, /* AD7124_Gain_2 */
+//			{ 0x34, AD7124_REG_U24,	AD7124_REG_RW,	0x500000	}, /* AD7124_Gain_3 */
+//			{ 0x35, AD7124_REG_U24,	AD7124_REG_RW,	0x500000	}, /* AD7124_Gain_4 */
+//			{ 0x36, AD7124_REG_U24,	AD7124_REG_RW,	0x500000	}, /* AD7124_Gain_5 */
+//			{ 0x37, AD7124_REG_U24,	AD7124_REG_RW,	0x500000	}, /* AD7124_Gain_6 */
+//			{ 0x38, AD7124_REG_U24,	AD7124_REG_RW,	0x500000	}, /* AD7124_Gain_7 */
+//		};
 };
 
 // ---------- END OF CLASS DECLARATION ---------------------------------------------------------- //

@@ -107,6 +107,7 @@ public:
 	uint32_t ADCReadError(void);
 
 	uint8_t ADCRead(E_ADEXTENDER_ADC_CH eChannel, uint32_t pOut[]);
+	uint8_t ADCReadWithPrintOut(E_ADEXTENDER_ADC_CH eChannel, uint32_t pOut[]);
 
 	uint8_t ADCConfigControl(uint16_t u16Value);
 
@@ -132,6 +133,9 @@ public :
 	uint8_t deviceSPIWrite(uint8_t u8Reg, uint8_t pu8Data[], uint8_t u8Length);
 	uint8_t deviceSPIRead(uint8_t u8Reg, uint8_t u8Length, uint8_t pu8DataOut[]);
 	uint8_t ADCReadRegister(ad7124_reg_access eRegister, uint8_t u8Size, uint32_t u32Out[]);
+	uint8_t ADCReadRegisterWithPrintOut(ad7124_reg_access eRegister, uint8_t u8Size, uint32_t u32Out[]);
+	uint8_t ADCWriteRegisterWithPrintOut(ad7124_reg_access eRegister,
+			uint32_t u32Value, uint8_t u8Size, uint8_t u8Verify);
 	uint8_t ADCWriteRegister(ad7124_reg_access eRegister,
 			uint32_t u32Value, uint8_t u8Size, uint8_t u8Verify);
 	uint8_t deviceSPIReadU8(uint8_t u8Reg);

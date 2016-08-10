@@ -32,7 +32,17 @@ extern "C" {
 // N/A
 // ---------- PRIVATE PROGRAMMING DEFINE -------------------------------------------------------- //
 //#define DEBUG_LIB
+//#define DEBUG_DAC
+#define SHIELD_PRINT
+#ifndef DAC_VREF
+
+#endif
+
+#ifndef ADC_VREF
+
+#endif
 #define DAC_FACTOR						100
+#define ADC_FACTOR						10000000UL
 #define CURRENT_TO_VOLTAGE_FACTOR		250
 #define SS_PIN							10
 #define AD7124_CRC8_POLYNOMIAL_REPRESENTATION 0x07 /* x8 + x2 + x + 1 */
@@ -44,12 +54,7 @@ extern "C" {
 //=========== Public Method ======================================================================//
 ADEXTENDER::ADEXTENDER() {
 	// TODO Auto-generated constructor stub
-	Init();
-}
-
-ADEXTENDER::ADEXTENDER(/*uint8_t ADCAddress, */uint8_t DACAddress) {
-	// TODO Auto-generated constructor stub
-	Init(/*ADCAddress, */DACAddress);
+	//Init();
 }
 
 ADEXTENDER::~ADEXTENDER() {
@@ -58,7 +63,8 @@ ADEXTENDER::~ADEXTENDER() {
 	SPI.end();
 }
 
-uint8_t ADEXTENDER::Init(void) {
+uint8_t ADEXTENDER::Begin(void) {
+	uint32_t u32Temp;
 	/*u8ADCAddress = ADS101x_DEFAULT_ADDRESS;*/
 	u8DACAddress = AD533X_DEFAULT_ADDRESS;
 	Wire.begin();
@@ -67,23 +73,93 @@ uint8_t ADEXTENDER::Init(void) {
 	pinMode(SS_PIN, OUTPUT);
 
 	// Default Voltage 5V 1 mV per resolution
-	u16Vref = 5000;
+	u16VrefDAC = 5000;
+	u16VrefADC = 1250;
 	// Calculate resolution
-	u8ADCResolution = (uint8_t)(((uint32_t)(u16Vref) * DAC_FACTOR) / 4095);
+	u16DACResolution = (uint8_t)(((uint32_t)(u16VrefDAC) * (uint32_t)DAC_FACTOR) / 4096) ;//(0xFFFF - 1));
+	u16ADCResolution = (uint64_t)(((uint64_t)(u16VrefADC) * ADC_FACTOR) / (0xFFFFFF - 1));
 
-	return 0;
-}
+	// Setting up AD7124
 
-uint8_t ADEXTENDER::Init(/*uint8_t ADCAddress, */uint8_t DACAddress) {
-	u8DACAddress = DACAddress;
-	Wire.begin();
-	SPI.begin();
+	// Reset chip
+	ADCReset();
 
-	pinMode(SS_PIN, OUTPUT);
-	// Default Voltage 5V 1 mV per resolution
-	u16Vref = 5000;
-	// Calculate resolution
-	u8ADCResolution = (uint8_t)(((uint32_t)(u16Vref) * DAC_FACTOR) / 4095);
+	delay(100);
+	// Write ERROR_EN register
+	aDCWriteRegister(AD7124_Error_En, 0x400046, 3, 1);
+	// Write ADC_CONTROL register
+	aDCWriteRegister(AD7124_Error_En, 0x0144, 2, 1);
+	// Write channel config
+	ADCConfigChannel(AD_EXTENDER_ADC_CH_1, 0, AD_DISABLE);
+	ADCConfigChannel(AD_EXTENDER_ADC_CH_2, 0, AD_DISABLE);
+	ADCConfigChannel(AD_EXTENDER_ADC_CH_3, 0, AD_DISABLE);
+	ADCConfigChannel(AD_EXTENDER_ADC_CH_4, 0, AD_DISABLE);
+	// Write channel pre-configuration
+
+	ADCSetConfig(0, 0, 0);   // Config 0 Vref = 1.25V PGA 1 	Range 0 - 1.25 V
+	ADCSetConfig(1, 0, 1);   // Config 1 Vref = 1.25V PGA 2		Range 0 - 625 mV
+	ADCSetConfig(2, 0, 2);   // Config 2 Vref = 1.25V PGA 4 	Range 0 - 312.5 mV
+	ADCSetConfig(3, 0, 3);   // Config 3 Vref = 1.25V PGA 8 	Range 0 - 156.25 mV
+	ADCSetConfig(4, 0, 4);   // Config 4 Vref = 1.25V PGA 16 	Range 0 - 78.125 mV
+	ADCSetConfig(5, 0, 5);   // Config 5 Vref = 1.25V PGA 32	Range 0 - 39.0625 mV
+	ADCSetConfig(6, 0, 6);   // Config 6 Vref = 1.25V PGA 64	Range 0 - 19.53125 mV
+	ADCSetConfig(7, 0, 7);   // Config 7 Vref = 1.25V PGA 128	Range 0 - 9.765625 mV
+
+#ifdef SHIELD_PRINT
+	Serial.print("\nSetting up Shield");
+	Serial.print("\nADCResolution = ");
+	Serial.print(u16ADCResolution, DEC);
+	Serial.print("\tDACResolution = ");
+	Serial.print(u16DACResolution, DEC);
+	aDCReadRegisterWithPrintOut(AD7124_Status, 1, &u32Temp);
+	aDCReadRegisterWithPrintOut(AD7124_ADC_Control, 2, &u32Temp);
+	aDCReadRegisterWithPrintOut(AD7124_Data, 3, &u32Temp);
+	aDCReadRegisterWithPrintOut(AD7124_IOCon1, 3, &u32Temp);
+	aDCReadRegisterWithPrintOut(AD7124_IOCon2_, 2, &u32Temp);
+	aDCReadRegisterWithPrintOut(AD7124_ID, 1, &u32Temp);
+	aDCReadRegisterWithPrintOut(AD7124_Error, 3, &u32Temp);
+	aDCReadRegisterWithPrintOut(AD7124_Error_En, 3, &u32Temp);
+	aDCReadRegisterWithPrintOut(AD7124_Mclk_Count, 1, &u32Temp);
+	aDCReadRegisterWithPrintOut(AD7124_Channel_0, 2, &u32Temp);
+	aDCReadRegisterWithPrintOut(AD7124_Channel_1, 2, &u32Temp);
+	aDCReadRegisterWithPrintOut(AD7124_Channel_2, 2, &u32Temp);
+	aDCReadRegisterWithPrintOut(AD7124_Channel_3, 2, &u32Temp);
+	aDCReadRegisterWithPrintOut(AD7124_Channel_4, 2, &u32Temp);
+	aDCReadRegisterWithPrintOut(AD7124_Config_0, 2, &u32Temp);
+	aDCReadRegisterWithPrintOut(AD7124_Config_1, 2, &u32Temp);
+	aDCReadRegisterWithPrintOut(AD7124_Config_2, 2, &u32Temp);
+	aDCReadRegisterWithPrintOut(AD7124_Config_3, 2, &u32Temp);
+	aDCReadRegisterWithPrintOut(AD7124_Config_4, 2, &u32Temp);
+	aDCReadRegisterWithPrintOut(AD7124_Config_5, 2, &u32Temp);
+	aDCReadRegisterWithPrintOut(AD7124_Config_6, 2, &u32Temp);
+	aDCReadRegisterWithPrintOut(AD7124_Config_7, 2, &u32Temp);
+	aDCReadRegisterWithPrintOut(AD7124_Filter_0, 3, &u32Temp);
+	aDCReadRegisterWithPrintOut(AD7124_Filter_1, 3, &u32Temp);
+	aDCReadRegisterWithPrintOut(AD7124_Filter_2, 3, &u32Temp);
+	aDCReadRegisterWithPrintOut(AD7124_Filter_3, 3, &u32Temp);
+	aDCReadRegisterWithPrintOut(AD7124_Filter_4, 3, &u32Temp);
+	aDCReadRegisterWithPrintOut(AD7124_Filter_5, 3, &u32Temp);
+	aDCReadRegisterWithPrintOut(AD7124_Filter_6, 3, &u32Temp);
+	aDCReadRegisterWithPrintOut(AD7124_Filter_7, 3, &u32Temp);
+	aDCReadRegisterWithPrintOut(AD7124_Offset_0, 3, &u32Temp);
+	aDCReadRegisterWithPrintOut(AD7124_Offset_1, 3, &u32Temp);
+	aDCReadRegisterWithPrintOut(AD7124_Offset_2, 3, &u32Temp);
+	aDCReadRegisterWithPrintOut(AD7124_Offset_3, 3, &u32Temp);
+	aDCReadRegisterWithPrintOut(AD7124_Offset_4, 3, &u32Temp);
+	aDCReadRegisterWithPrintOut(AD7124_Offset_5, 3, &u32Temp);
+	aDCReadRegisterWithPrintOut(AD7124_Offset_6, 3, &u32Temp);
+	aDCReadRegisterWithPrintOut(AD7124_Offset_7, 3, &u32Temp);
+	aDCReadRegisterWithPrintOut(AD7124_Gain_0, 3, &u32Temp);
+	aDCReadRegisterWithPrintOut(AD7124_Gain_1, 3, &u32Temp);
+	aDCReadRegisterWithPrintOut(AD7124_Gain_2, 3, &u32Temp);
+	aDCReadRegisterWithPrintOut(AD7124_Gain_3, 3, &u32Temp);
+	aDCReadRegisterWithPrintOut(AD7124_Gain_4, 3, &u32Temp);
+	aDCReadRegisterWithPrintOut(AD7124_Gain_5, 3, &u32Temp);
+	aDCReadRegisterWithPrintOut(AD7124_Gain_6, 3, &u32Temp);
+	aDCReadRegisterWithPrintOut(AD7124_Gain_7, 3, &u32Temp);
+#endif
+
+
 	return 0;
 }
 
@@ -142,11 +218,23 @@ uint8_t ADEXTENDER::DACUpdateVaule(
 }
 
 uint8_t ADEXTENDER::DACSetOutByVoltage(E_ADEXTENDER_OUT_CHANNEL eCh,
-		E_ADEXTENDER_OUT_MODE eMode, uint16_t u16Volage) {
+		E_ADEXTENDER_MODE eMode, uint16_t u16Volage) {
 	uint16_t u16DACValue;
 
-	u16DACValue = ((uint32_t)u16Volage * (uint32_t)DAC_FACTOR) / u8ADCResolution;
+	u16DACValue = ((uint32_t)u16Volage * (uint32_t)DAC_FACTOR) / u16DACResolution;
 
+	if (eMode == AD_EXTENDER_MODE_0_10_V) {
+		u16DACValue = u16DACValue / 2;
+	}
+
+	if (u16DACValue >= 4095) {
+		u16DACValue = 4095;
+	}
+
+#ifdef DEBUG_LIB && DEBUG_DAC
+	Serial.print("\nWrite Value to DAC : ");
+	Serial.print(u16DACValue, DEC);
+#endif
 	return DACUpdateVaule(
 			(AD533X_OUT_SEL)eCh,
 			AD533X_POWER_DOWN_NORMAL,
@@ -156,7 +244,7 @@ uint8_t ADEXTENDER::DACSetOutByVoltage(E_ADEXTENDER_OUT_CHANNEL eCh,
 }
 
 uint8_t ADEXTENDER::DACSetOutByCurrent(E_ADEXTENDER_OUT_CHANNEL eCh,
-		E_ADEXTENDER_OUT_MODE eMode, uint16_t u16Current) {
+		E_ADEXTENDER_MODE eMode, uint16_t u16Current) {
 	uint16_t u16DACValue;
 	uint16_t u16mAConvert;
 
@@ -165,7 +253,7 @@ uint8_t ADEXTENDER::DACSetOutByCurrent(E_ADEXTENDER_OUT_CHANNEL eCh,
 	}
 	u16mAConvert = u16Current * CURRENT_TO_VOLTAGE_FACTOR;
 
-	return DACSetOutByVoltage(eCh, AD_EXTENDER_OUT_MODE_0_5_V, u16mAConvert);
+	return DACSetOutByVoltage(eCh, AD_EXTENDER_MODE_0_5_V, u16mAConvert);
 
 }
 
@@ -184,36 +272,48 @@ uint8_t ADEXTENDER::ADCReadStatus(void) {
 	uint32_t u32ReadValue;
 
 #ifndef DEBUG_LIB
-	ADCReadRegister(AD7124_Status, 1, &u32ReadValue);
+	aDCReadRegister(AD7124_Status, 1, &u32ReadValue);
 #else
-	ADCReadRegisterWithPrintOut(AD7124_Status, 1, &u32ReadValue);
+	aDCReadRegisterWithPrintOut(AD7124_Status, 1, &u32ReadValue);
 #endif
 
 	return (uint8_t)u32ReadValue;
-
-	//return deviceSPIReadU8(AD7124_STATUS_REG);
 }
 
-uint8_t ADEXTENDER::ADCReadMCLK(void) {
-
-	return deviceSPIReadU8(AD7124_Mclk_Count);
-}
-
-uint32_t ADEXTENDER::ADCReadERROR_EN(void) {
-
-	return deviceSPIReadU24(AD7124_ERREN_REG);
-}
-
-uint32_t ADEXTENDER::ADCReadError(void) {
-
-	return deviceSPIReadU24(AD7124_Error);
-}
-
-uint8_t ADEXTENDER::ADCRead(E_ADEXTENDER_ADC_CH eChannel, uint32_t pOut[]) {
+uint8_t ADEXTENDER::ADCRead(E_ADEXTENDER_ADC_CH eChannel, E_ADEXTENDER_MODE eMode , uint32_t pOut[], uint32_t pu32Step[]) {
 	uint8_t u8Ready;
 	uint8_t u8Temp[4];
 	uint32_t timeout;
-	uint32_t u32ReadValue;
+	uint16_t u16Resulotion;
+	uint64_t u64CalValue;
+	uint8_t u8ConfigSel;
+
+	// Select pre-setting and resolution
+	switch (eMode) {
+		case AD_EXTENDER_MODE_0_5_V:
+			u8ConfigSel = 1;
+			u16Resulotion = u16ADCResolution / 2;
+			break;
+		case AD_EXTENDERMODE_0_20_mA:
+			u8ConfigSel = 1;
+			u16Resulotion = u16ADCResolution / 2;
+			break;
+		case AD_EXTENDER_MODE_4_20_mA:
+			u8ConfigSel = 1;
+			u16Resulotion = u16ADCResolution / 2;
+		break;
+		case AD_EXTENDER_MODE_0_10_V:
+			u8ConfigSel = 0;
+			u16Resulotion = u16ADCResolution;
+		break;
+		case AD_EXTENDER_MODE_TC:
+			u8ConfigSel = 5;
+			u16Resulotion = u16ADCResolution / 32;
+
+		break;
+	}
+
+	ADCConfigChannel(eChannel, u8ConfigSel, AD_DISABLE);
 
 	aDCStartConversion(eChannel);
 
@@ -233,33 +333,18 @@ uint8_t ADEXTENDER::ADCRead(E_ADEXTENDER_ADC_CH eChannel, uint32_t pOut[]) {
 		return 255;
 	}
 
-	//pOut[0] = deviceSPIReadU24(AD7124_Data);
+	// Read conversion value
+	aDCGetConversionValue(pu32Step);
 
-    /*deviceSPIRead(AD7124_Data, 3, u8Temp);
+	// Calculate to voltage/current Domain
+	u64CalValue = (uint64_t)((uint64_t)(pu32Step[0]) * (uint64_t)(u16Resulotion) / (ADC_FACTOR / 100));
 
-    //pOut[0] = (uint32_t)(u8Temp[0]) << 24;
-    //pOut[0] |= (uint32_t)(u8Temp[1]) << 16;
-    pOut[0] = (uint32_t)(u8Temp[0]) << 16;
-    pOut[0] |= (uint32_t)(u8Temp[1])<< 8;
-    pOut[0] |= (uint32_t)(u8Temp[2]);
-
-    /*deviceSPIRead(AD7124_Data, 4, u8Temp);
-
-    pOut[0] = (uint32_t)(u8Temp[0]) << 24;
-    pOut[0] |= (uint32_t)(u8Temp[1]) << 16;
-    pOut[0] |= (uint32_t)(u8Temp[2])<< 8;
-    pOut[0] |= (uint32_t)(u8Temp[3]);*/
-
-
-
-
-	ADCReadRegister(AD7124_Data, 2, pOut);
-
-	//return (uint16_t)u32ReadValue;
-
+	pOut[0] = (uint32_t)u64CalValue * 845;
 	return 0;
 
 }
+
+
 
 uint8_t ADEXTENDER::ADCReadWithPrintOut(E_ADEXTENDER_ADC_CH eChannel, uint32_t pOut[]) {
 	uint8_t u8Ready;
@@ -289,12 +374,12 @@ uint8_t ADEXTENDER::ADCReadWithPrintOut(E_ADEXTENDER_ADC_CH eChannel, uint32_t p
 	}
 
 	if (timeout == 0) {
-		ADCReadRegisterWithPrintOut(AD7124_Data, 3, pOut);
+		aDCReadRegisterWithPrintOut(AD7124_Data, 3, pOut);
 		return 255;
 	}
 
 
-	ADCReadRegisterWithPrintOut(AD7124_Data, 3, pOut);
+	aDCReadRegisterWithPrintOut(AD7124_Data, 3, pOut);
 
 
 	return 0;
@@ -306,15 +391,10 @@ uint8_t ADEXTENDER::ADCConfigControl(uint16_t u16Value) {
 	uint8_t u8Status;
 	uint16_t u16Temp;
 
-	//u8Temp[0] = (uint8_t)((u16Value >> 8) & 0xFF);
-	//u8Temp[1] = (uint8_t)(u16Value & 0xFF);
-
-	//deviceSPIWrite(AD7124_ADC_Control, u8Temp, 2);
-
 #ifndef DEBUG_LIB
-	u8Status = ADCWriteRegister(AD7124_ADC_Control, (uint32_t)u16Value, 2, 1);
+	u8Status = aDCWriteRegister(AD7124_ADC_Control, (uint32_t)u16Value, 2, 1);
 #else
-	u8Status = ADCWriteRegisterWithPrintOut(AD7124_ADC_Control, (uint32_t)u16Value, 2, 1);
+	u8Status = aDCWriteRegisterWithPrintOut(AD7124_ADC_Control, (uint32_t)u16Value, 2, 1);
 #endif
 
 	return u8Status;
@@ -346,20 +426,12 @@ uint8_t ADEXTENDER::ADCConfigChannel(E_ADEXTENDER_ADC_CH eCh, uint8_t u8config, 
 			AD7124_CH_MAP_REG_AINP(eCh) |
 			AD7124_CH_MAP_REG_AINM(17);
 
-/*	Serial.print("\nWrite ch ");
-	Serial.print(eCh, DEC);
-	Serial.print(" config control : ");
-	Serial.print(u16Temp, HEX);*/
-	//u8TempBuffer[0] = (uint8_t)((u16Temp >> 8) & 0xFF);
-	//u8TempBuffer[1] = (uint8_t)(u16Temp & 0xFF);
-
 	u8WriteChannel = (uint8_t)(AD7124_Channel_0 + eCh);
 
-	//deviceSPIWrite(AD7124_Channel_0 + eCh, u8TempBuffer, 2);
 #ifndef DEBUG_LIB
-	u8Status = ADCWriteRegister((ad7124_reg_access)u8WriteChannel, (uint32_t)u16Temp, 2, 1);
+	u8Status = aDCWriteRegister((ad7124_reg_access)u8WriteChannel, (uint32_t)u16Temp, 2, 1);
 #else
-	u8Status = ADCWriteRegisterWithPrintOut((ad7124_reg_access)u8WriteChannel, (uint32_t)u16Temp, 2, 1);
+	u8Status = aDCWriteRegisterWithPrintOut((ad7124_reg_access)u8WriteChannel, (uint32_t)u16Temp, 2, 1);
 #endif
 	return u8Status;
 }
@@ -370,13 +442,11 @@ uint16_t ADEXTENDER::ADCGetConfigChannel(E_ADEXTENDER_ADC_CH eCh) {
 
 	u8ReadEnrty = AD7124_Channel_0 + eCh;
 
-
 	// Read Channel configuration
-	//return deviceSPIReadU16(AD7124_Channel_0 + eCh);
 #ifndef DEBUG_LIB
-	ADCReadRegister((ad7124_reg_access)u8ReadEnrty, 2, &u32ReadValue);
+	aDCReadRegister((ad7124_reg_access)u8ReadEnrty, 2, &u32ReadValue);
 #else
-	ADCReadRegisterWithPrintOut((ad7124_reg_access)u8ReadEnrty, 2, &u32ReadValue);
+	aDCReadRegisterWithPrintOut((ad7124_reg_access)u8ReadEnrty, 2, &u32ReadValue);
 #endif
 	return (uint16_t)u32ReadValue;
 }
@@ -395,17 +465,12 @@ uint8_t ADEXTENDER::ADCSetConfig(uint8_t u8Entry, uint8_t vrefSel, uint8_t pga) 
 			AD7124_CFG_REG_AINN_BUFM |
 			AD7124_CFG_REG_PGA(pga);
 
-	//u8TempBuffer[0] = (uint8_t)((u16Temp >> 8) & 0xFF);
-	//u8TempBuffer[1] = (uint8_t)(u16Temp & 0xFF);
-
 	u8WriteConfigEntry = (uint8_t)(AD7124_Config_0 + u8Entry);
 
-	//deviceSPIWrite(AD7124_Config_0 + u8Entry, u8TempBuffer, 2);
-
 #ifndef DEBUG_LIB
-	u8Status = ADCWriteRegister((ad7124_reg_access)u8WriteConfigEntry, (uint32_t)u16Temp, 2, 1);
+	u8Status = aDCWriteRegister((ad7124_reg_access)u8WriteConfigEntry, (uint32_t)u16Temp, 2, 1);
 #else
-	u8Status = ADCWriteRegisterWithPrintOut((ad7124_reg_access)u8WriteConfigEntry, (uint32_t)u16Temp, 2, 1);
+	u8Status = aDCWriteRegisterWithPrintOut((ad7124_reg_access)u8WriteConfigEntry, (uint32_t)u16Temp, 2, 1);
 #endif
 
 	return u8Status;
@@ -422,14 +487,15 @@ uint16_t ADEXTENDER::ADCGetConfig(uint8_t u8Entry) {
 
 
 #ifndef DEBUG_LIB
-	ADCReadRegisterWithPrintOut((ad7124_reg_access)u8ReadEnrty, 2, &u32ReadValue);
+	aDCReadRegisterWithPrintOut((ad7124_reg_access)u8ReadEnrty, 2, &u32ReadValue);
 #else
-	ADCReadRegisterWithPrintOut((ad7124_reg_access)u8ReadEnrty, 2, &u32ReadValue);
+	aDCReadRegisterWithPrintOut((ad7124_reg_access)u8ReadEnrty, 2, &u32ReadValue);
 #endif
 	return (uint16_t)u32ReadValue;
 }
 
-uint8_t ADEXTENDER::ADCWriteErrorEn(uint32_t u32Value) {
+//=========== Private Method ======================================================================//
+uint8_t ADEXTENDER::aDCWriteErrorEn(uint32_t u32Value) {
 	uint8_t u8TempBuffer[8];
 	u8TempBuffer[0] = (uint8_t)((u32Value >> 16) & 0xFF);
 	u8TempBuffer[1] = (uint8_t)((u32Value >> 8) & 0xFF);
@@ -437,9 +503,6 @@ uint8_t ADEXTENDER::ADCWriteErrorEn(uint32_t u32Value) {
 
 	deviceSPIWrite(AD7124_ERREN_REG, u8TempBuffer, 3);
 }
-
-
-//=========== Private Method ======================================================================//
 
 uint8_t ADEXTENDER::aDCStartConversion(E_ADEXTENDER_ADC_CH eChannel) {
 	uint32_t u32Status;
@@ -458,11 +521,10 @@ uint8_t ADEXTENDER::aDCStartConversion(E_ADEXTENDER_ADC_CH eChannel) {
 			(uint16_t)(AD7124_ADC_CTRL_REG_CLK_SEL(1));
 
 	// Read Current active channel
-	//u8Status = ADCReadStatus();
+	u32Status = (uint32_t)ADCReadStatus();
 
-	ADCReadRegisterWithPrintOut(AD7124_Status, 1, &u32Status);
+	//aDCReadRegisterWithPrintOut(AD7124_Status, 1, &u32Status);
 	psStatus = (AD7124_STATUS_REGISTER*) &u32Status;
-	//Serial.print("Read Active Ch : ");
 
 	if (eChannel != psStatus->CH_ACTIVE) {
 		// Disable current status
@@ -473,21 +535,14 @@ uint8_t ADEXTENDER::aDCStartConversion(E_ADEXTENDER_ADC_CH eChannel) {
 	ADCSetChannelControl(eChannel, AD_ENABLE);
 
 	// Write value to ADC Control
-	//u8TempBuffer[0] = (uint8_t)((u16ConfigValue >> 8) & 0xFF);
-	//u8TempBuffer[1] = (uint8_t)(u16ConfigValue & 0xFF);
-	//deviceSPIWrite(AD7124_ADC_Control, u8TempBuffer, 2);
 	ADCConfigControl(u16ConfigValue);
-	//ADCConfigControl(0x0144);
 
 	return 0;
 }
 
-uint8_t ADEXTENDER::aDCGetConversionValue(uint16_t data[]) {
-	uint8_t u8TempBuffer[4];
+uint8_t ADEXTENDER::aDCGetConversionValue(uint32_t data[]) {
 
-	deviceSPIRead(AD7124_STATUS_REG, 3, u8TempBuffer);
-
-	return 0;
+	return aDCReadRegister(AD7124_Data, 3, data);;
 
 }
 
@@ -562,7 +617,7 @@ uint8_t ADEXTENDER::deviceSPIRead(uint8_t u8Reg, uint8_t u8Length, uint8_t pu8Da
 	return 0;
 }
 
-uint8_t ADEXTENDER::ADCWriteRegister(ad7124_reg_access eRegister,
+uint8_t ADEXTENDER::aDCWriteRegister(ad7124_reg_access eRegister,
 		uint32_t u32Value, uint8_t u8Size, uint8_t u8Verify) {
   uint8_t u8Msg[16];
   uint8_t i;
@@ -595,10 +650,10 @@ uint8_t ADEXTENDER::ADCWriteRegister(ad7124_reg_access eRegister,
   digitalWrite(SS_PIN, HIGH);
 
   // Calculate CRC
-  Serial.print(computeCRC8(u8Msg, u8Size + 2), HEX);
+  //Serial.print(computeCRC8(u8Msg, u8Size + 2), HEX);
 
   if (u8Verify == 1) {
-	  u8Status = ADCReadRegister(eRegister, u8Size, &u32ReadValue);
+	  u8Status = aDCReadRegister(eRegister, u8Size, &u32ReadValue);
 	  if ((u8Status == 255) || (u32Value != u32ReadValue)) {
 		  // Verify fail
 		  return 255;
@@ -609,7 +664,7 @@ uint8_t ADEXTENDER::ADCWriteRegister(ad7124_reg_access eRegister,
 
 }
 
-uint8_t ADEXTENDER::ADCWriteRegisterWithPrintOut(ad7124_reg_access eRegister,
+uint8_t ADEXTENDER::aDCWriteRegisterWithPrintOut(ad7124_reg_access eRegister,
 		uint32_t u32Value, uint8_t u8Size, uint8_t u8Verify) {
   uint8_t u8Msg[16];
   uint8_t i;
@@ -654,7 +709,7 @@ uint8_t ADEXTENDER::ADCWriteRegisterWithPrintOut(ad7124_reg_access eRegister,
   Serial.print(computeCRC8(u8Msg, u8Size + 2), HEX);
 
   if (u8Verify == 1) {
-	  u8Status = ADCReadRegister(eRegister, u8Size, &u32ReadValue);
+	  u8Status = aDCReadRegister(eRegister, u8Size, &u32ReadValue);
 	  if ((u8Status == 255) || (u32Value != u32ReadValue)) {
 		  // Verify fail
 		  Serial.print("\t Verify fail ");
@@ -670,7 +725,7 @@ uint8_t ADEXTENDER::ADCWriteRegisterWithPrintOut(ad7124_reg_access eRegister,
 
 }
 
-uint8_t ADEXTENDER::ADCReadRegister(ad7124_reg_access eRegister, uint8_t u8Size, uint32_t u32Out[]) {
+uint8_t ADEXTENDER::aDCReadRegister(ad7124_reg_access eRegister, uint8_t u8Size, uint32_t u32Out[]) {
 	uint8_t u8Msg[16];
 	uint8_t i;
 	uint8_t u8CRC;
@@ -710,7 +765,7 @@ uint8_t ADEXTENDER::ADCReadRegister(ad7124_reg_access eRegister, uint8_t u8Size,
 
 }
 
-uint8_t ADEXTENDER::ADCReadRegisterWithPrintOut(ad7124_reg_access eRegister, uint8_t u8Size, uint32_t u32Out[]) {
+uint8_t ADEXTENDER::aDCReadRegisterWithPrintOut(ad7124_reg_access eRegister, uint8_t u8Size, uint32_t u32Out[]) {
 	uint8_t u8Msg[16];
 	uint8_t i;
 	uint8_t u8CRC;
@@ -760,43 +815,6 @@ uint8_t ADEXTENDER::ADCReadRegisterWithPrintOut(ad7124_reg_access eRegister, uin
 
 	return 0;
 
-}
-
-uint8_t ADEXTENDER::deviceSPIReadU8(uint8_t u8Reg) {
-	uint8_t u8TempBuffer;
-	uint16_t u16Temp;
-
-	// Read Channel configuration
-	deviceSPIRead(u8Reg, 1, &u8TempBuffer);
-
-	return u8TempBuffer;
-}
-
-uint16_t ADEXTENDER::deviceSPIReadU16(uint8_t u8Reg) {
-	uint8_t u8TempBuffer[4];
-	uint16_t u16Temp;
-
-	// Read Channel configuration
-	deviceSPIRead(u8Reg, 2, u8TempBuffer);
-
-	u16Temp = (uint16_t)(u8TempBuffer[0]) << 8;
-	u16Temp |= u8TempBuffer[1];
-
-	return u16Temp;
-}
-
-uint32_t ADEXTENDER::deviceSPIReadU24(uint8_t u8Reg) {
-	uint8_t u8TempBuffer[4];
-	uint32_t u32Temp;
-
-	// Read Channel configuration
-	deviceSPIRead(u8Reg, 3, u8TempBuffer);
-
-	u32Temp = (uint32_t)(u8TempBuffer[0]) << 16;
-	u32Temp |= (uint32_t)(u8TempBuffer[1])<< 8;
-	u32Temp |= (uint32_t)(u8TempBuffer[2]);
-
-	return u32Temp;
 }
 
 uint8_t ADEXTENDER::computeCRC8(uint8_t * pBuf, uint8_t bufSize) {

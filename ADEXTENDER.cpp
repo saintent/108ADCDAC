@@ -325,7 +325,7 @@ uint8_t ADEXTENDER::ADCRead(E_ADEXTENDER_ADC_CH eChannel, E_ADEXTENDER_MODE eMod
 	while(u8Ready && --timeout) {
 		u8Ready = ADCReadStatus();
 		u8Ready = (u8Ready & AD7124_STATUS_REG_RDY) >> 7;
-		delay(10);
+		delay(50);
 
 	}
 

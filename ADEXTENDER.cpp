@@ -31,9 +31,9 @@ extern "C" {
 // ---------- PRIVATE DATA ---------------------------------------------------------------------- //
 // N/A
 // ---------- PRIVATE PROGRAMMING DEFINE -------------------------------------------------------- //
-//#define DEBUG_LIB
+#define DEBUG_LIB
 //#define DEBUG_DAC
-#define SHIELD_PRINT
+//#define SHIELD_PRINT
 #ifndef DAC_VREF
 
 #endif
@@ -80,6 +80,7 @@ uint8_t ADEXTENDER::Begin(void) {
 	u16ADCResolution = (uint64_t)(((uint64_t)(u16VrefADC) * ADC_FACTOR) / (0xFFFFFF - 1));
 
 	// Setting up AD7124
+	u16ReadTimeout = 500;
 
 	// Reset chip
 	ADCReset();
@@ -287,6 +288,9 @@ uint8_t ADEXTENDER::ADCRead(E_ADEXTENDER_ADC_CH eChannel, E_ADEXTENDER_MODE eMod
 	uint16_t u16Resulotion;
 	uint64_t u64CalValue;
 	uint8_t u8ConfigSel;
+	uint16_t u16TimeOutStep;
+
+	u16TimeOutStep = u16ReadTimeout / 10;
 
 	// Select pre-setting and resolution
 	switch (eMode) {
@@ -325,7 +329,7 @@ uint8_t ADEXTENDER::ADCRead(E_ADEXTENDER_ADC_CH eChannel, E_ADEXTENDER_MODE eMod
 	while(u8Ready && --timeout) {
 		u8Ready = ADCReadStatus();
 		u8Ready = (u8Ready & AD7124_STATUS_REG_RDY) >> 7;
-		delay(50);
+		delay(u16TimeOutStep);
 
 	}
 
@@ -351,25 +355,32 @@ uint8_t ADEXTENDER::ADCReadWithPrintOut(E_ADEXTENDER_ADC_CH eChannel, uint32_t p
 	uint8_t u8Temp[4];
 	uint32_t timeout;
 	uint32_t u32ReadValue;
+	uint16_t u16TimeOutStep;
 
+	u16TimeOutStep = u16ReadTimeout / 10;
+
+#ifdef SHIELD_PRINT
 	Serial.print("\nStart convertion on ch : ");
 	Serial.print(eChannel, HEX);
-
+#endif
 	aDCStartConversion(eChannel);
 
 	pOut[0] = 0xFFFFFFFF;
 	timeout = 100;
 	u8Ready = ADCReadStatus();
 	u8Ready = (u8Ready & AD7124_STATUS_REG_RDY) >> 7;
+#ifdef SHIELD_PRINT
 	Serial.print("\nRead Status : ");
 	Serial.print(u8Ready, HEX);
-
+#endif
 	while(u8Ready && --timeout) {
 		u8Ready = ADCReadStatus();
 		u8Ready = (u8Ready & AD7124_STATUS_REG_RDY) >> 7;
+#ifdef SHIELD_PRINT
 		Serial.print("\nRead Status : ");
 		Serial.print(u8Ready, HEX);
-		delay(100);
+#endif
+		delay(u16TimeOutStep);
 
 	}
 
@@ -492,6 +503,10 @@ uint16_t ADEXTENDER::ADCGetConfig(uint8_t u8Entry) {
 	aDCReadRegisterWithPrintOut((ad7124_reg_access)u8ReadEnrty, 2, &u32ReadValue);
 #endif
 	return (uint16_t)u32ReadValue;
+}
+
+uint8_t ADEXTENDER::ADCSetReadTimeOut(uint16_t u16Interval) {
+	u16ReadTimeout = u16Interval;
 }
 
 //=========== Private Method ======================================================================//
@@ -688,37 +703,46 @@ uint8_t ADEXTENDER::aDCWriteRegisterWithPrintOut(ad7124_reg_access eRegister,
     u8Msg[2] = computeCRC8(u8Msg, u8Size + 1);
   }
 
+#ifdef SHIELD_PRINT
   Serial.print("\nWrite Register ");
   Serial.print(eRegister, HEX);
   Serial.print("\t\t");
-
+#endif
 
 
   digitalWrite(SS_PIN, LOW);
   for(i = 0; i < u8Size + 2; i++) {
+#ifdef SHIELD_PRINT
     Serial.print(" 0x");
+#endif
     SPI.transfer(u8Msg[i]);
+#ifdef SHIELD_PRINT
     Serial.print(u8Msg[i], HEX);
-
+#endif
   }
 
   digitalWrite(SS_PIN, HIGH);
 
   //
+#ifdef SHIELD_PRINT
   Serial.print("\t CRC = ");
   Serial.print(computeCRC8(u8Msg, u8Size + 2), HEX);
-
+#endif
   if (u8Verify == 1) {
 	  u8Status = aDCReadRegister(eRegister, u8Size, &u32ReadValue);
 	  if ((u8Status == 255) || (u32Value != u32ReadValue)) {
 		  // Verify fail
+#ifdef SHIELD_PRINT
 		  Serial.print("\t Verify fail ");
 		  Serial.print(u32Value ,HEX);
 		  Serial.print(" ");
 		  Serial.print(u32ReadValue, HEX);
+#endif
 		  return 255;
 	  }
+#ifdef SHIELD_PRINT
 	  Serial.print("\t Verify pass");
+#endif
   }
 
   return 0;
@@ -773,31 +797,35 @@ uint8_t ADEXTENDER::aDCReadRegisterWithPrintOut(ad7124_reg_access eRegister, uin
 	u8Msg[0] = AD7124_COMM_REG_WEN | AD7124_COMM_REG_RD
 			| AD7124_COMM_REG_RA(eRegister);
 
+#ifdef SHIELD_PRINT
 	Serial.print("\nRead Register ");
 	Serial.print(eRegister, HEX);
 	Serial.print("\t\t");
 	Serial.print("0x");
+#endif
 
 	digitalWrite(SS_PIN, LOW);
 	SPI.transfer(u8Msg[0]);
 
 	for (i = 0; i < u8Size + 1; i++) {
 		u8Msg[1 + i] = SPI.transfer(0xFF);
+#ifdef SHIELD_PRINT
 		if (i == u8Size) {
 			Serial.print("\t");
 		}
 		Serial.print(u8Msg[1 + i], HEX);
 		Serial.print(" ");
-
+#endif
 	}
 
 	digitalWrite(SS_PIN, HIGH);
 
 	// Calculate CRC
 	u8CRC = computeCRC8(u8Msg, u8Size + 2);
+#ifdef SHIELD_PRINT
 	Serial.print("\t CRC = ");
 	Serial.print(u8CRC, HEX);
-
+#endif
 	if (u8CRC != 0) {
 		return 255;
 	}

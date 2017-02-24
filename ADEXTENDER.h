@@ -113,6 +113,7 @@ public:
 
 	uint8_t ADCSetConfig(uint8_t u8Entry, uint8_t vrefSel, uint8_t pga);
 	uint16_t ADCGetConfig(uint8_t u8Entry);
+	uint8_t ADCSetReadTimeOut(uint16_t u16Interval);
 
 
 
@@ -146,7 +147,7 @@ private :
 	uint16_t u16VrefADC;
 	uint16_t u16ADCResolution;
 	uint8_t u16DACResolution;
-
+	uint16_t u16ReadTimeout;
 };
 
 // ---------- END OF CLASS DECLARATION ---------------------------------------------------------- //

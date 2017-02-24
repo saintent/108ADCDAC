@@ -117,3 +117,5 @@ int32_t AD7124_Setup(ad7124_device *device, int slave_select,
 			ad7124_st_reg *regs);
 
 #endif /* __AD7124_H__ */
+
+//test
